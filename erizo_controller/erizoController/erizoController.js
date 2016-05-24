@@ -295,7 +295,63 @@ var updateMyState = function () {
 
 var listen = function () {
     "use strict";
-
+    Array.prototype.remove = function (value) {		
+        var index = this.indexOf(value);		
+        this.splice(index, 1)		
+    };		
+    var wbHistory = function () {		
+        this._stack = [];		
+        this._queue = [];		
+    };		
+    wbHistory.prototype = {		
+        get: function () {		
+            return this._stack;		
+        },		
+        add: function (data) {		
+            this._stack.push(data);		
+            if (this._queue.length > 0) {		
+                this._queue = [];		
+            }		
+        },		
+        undo: function () {		
+            if (this._stack.length == 0) {		
+                return;		
+            }		
+            this._queue.push(this._stack.pop());		
+        },		
+        redo: function () {		
+            if (this._queue.length == 0) {		
+                return;		
+            }		
+            this._stack.push(this._queue.pop());		
+        }		
+    };		
+    		
+    var Room1 = function (name) {		
+        this.name = name;		
+        this.users = [];		
+        this.chatHistory = [];		
+        this.wbHistory = new wbHistory();		
+        this.images = [];		
+    };		
+    Room1.prototype = {		
+        getUsers: function () {		
+            return this.users;		
+        },		
+        addUser: function (userName) {		
+            this.users.push(userName);		
+        },		
+        removeUser: function (userName) {		
+            this.users.remove(userName);		
+        }		
+    };		
+    		
+    var createRoom = function (roomName) {		
+        var room = new Room1(roomName);		
+        rooms_whiteboard[room.name] = room;		
+	   return room;		
+    };		
+var rooms_whiteboard = {};
     io.sockets.on('connection', function (socket) {
         log.info("New ErizoClient connected ", socket.id);
         socket.on('startedRecording', function(data){		
@@ -307,17 +363,102 @@ var listen = function () {
             var session_id = data['session_id'];		
             log.info(message);		
       // socket.broadcast.emit('cannotRecord', {'message': message});		
-            io.sockets.in(data.id).emit('cannotRecord',{'host': host, 'message': message, 'meeting_id': meeting_id, 'session_id': session_id});	                });		
+            io.sockets.in(data.id).emit('cannotRecord',{'host': host, 'message': message, 'meeting_id': meeting_id, 'session_id':   session_id});
+        });		
+        
         socket.on('stoppedRecording', function(data){		
-        //process.stdout.write(data.letter);		
+            //process.stdout.write(data.letter);		
             var host = data['host'];		
             var message = host + ' has stopped recording';		
             var meeting_id = data['meeting_id'];		
-		var session_id = data['session_id'];		
+            var session_id = data['session_id'];		
             log.info(message);		
-      //  socket.broadcast.emit('canRecord', {'message': message});		
-            io.sockets.in(data.id).emit('canRecord',{'host': host,'message': message, 'meeting_id': meeting_id, 'session_id': session_id});		
+            //  socket.broadcast.emit('canRecord', {'message': message});		
+            io.sockets.in(data.id).emit('canRecord',{'host': host,'message': message, 'meeting_id': meeting_id, 'session_id':   session_id});		
         });  
+        
+        socket.on('sendAlternateMessage',function(message){		
+            io.sockets.in(message.id).emit('new_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});       });		
+        		
+        socket.on('sendGroupMessage',function(message){		
+        io.sockets.in(message.id).emit('new_group_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});		
+        });    		
+      		
+        socket.on('sendInviteMessage',function(message){		
+            console.log(message);		
+            io.sockets.in(message.id).emit('invite_notification',{msg:message.message,remoteId:message.ownId});		
+        });    		
+     
+        socket.on('sendConfirmMessage',function(message){		
+            console.log(message);		
+            io.sockets.in(message.id).emit('invite_confirmation',{msg:message.message,remoteId:message.ownId,ownerId:message.inviterId});		
+        });   		
+        		
+        socket.on('sendCommunityDelMessage',function(message){		
+            console.log(message);		
+            io.sockets.in(message.id).emit('deleted_from_community',{msg:message.message,remoteId:message.ownId});		
+        });  		
+        		
+        socket.on('notifyDelete',function(message){		
+            console.log(message);		
+            io.sockets.in(message.id).emit('deleteNotification',{msg:message.message,remoteId:message.ownId,deletedMember:message.memberId});		
+        });  		
+    		
+        socket.on('add_user', function (userName, roomName) {		
+            roomName = roomName || "Room 1";		
+            socket.username = userName;		
+            socket.room = roomName;		
+            var currentRoom = rooms_whiteboard[roomName] || createRoom(roomName);		
+	        if(currentRoom != undefined){		
+                currentRoom.addUser(userName);		
+                socket.join(roomName);		
+                currentRoom.chatHistory.length != 0 && socket.emit('update_chat', currentRoom.chatHistory);		
+                currentRoom.images.length != 0 && socket.emit('update_image', currentRoom.images);		
+                if (currentRoom.wbHistory.get().length != 0) {		
+                    if (currentRoom.wbHistory._queue.length) {		
+                        socket.emit('update_wb', currentRoom.wbHistory.get(), currentRoom.wbHistory._queue);		
+                    }		
+                    else {		
+                        socket.emit('update_wb', currentRoom.wbHistory.get());		
+                    }		
+                }		
+                socket.emit('notification_message', 'Welcome!', 'you have connected to ' + roomName + '.');		
+                socket.broadcast.to(roomName).emit('notification_message', userName, 'has connected to ' + roomName + '.');		
+                io.sockets.in(roomName).emit('update_users', currentRoom.getUsers());		
+                io.sockets.emit('update_rooms', rooms_whiteboard);		
+            }		
+        });		
+   
+        socket.on('send_chat', function (data) {		
+            var msgData = {name: socket.username, msg: data};		
+            var currentRoom = rooms_whiteboard[socket.room];		
+            currentRoom.chatHistory.push(msgData);		
+            io.sockets.in(socket.room).emit('update_chat', [msgData]);		
+        });		
+        
+        socket.on('send_wb', function (data) {		
+            var currentRoom = rooms_whiteboard[socket.room];		
+            if(currentRoom != undefined){		
+                currentRoom.wbHistory.add(data);		
+                socket.broadcast.to(socket.room).emit('update_wb', data);		
+            }		
+        });		
+        
+        socket.on('change_wb_history', function (operation) {		
+            var currentRoom = rooms_whiteboard[socket.room];		
+            if(currentRoom != undefined){		
+                operation == "undo" ? currentRoom.wbHistory.undo() : currentRoom.wbHistory.redo();		
+                io.sockets.in(socket.room).emit('update_wb_history', operation);		
+            }		
+        });		
+       
+        socket.on('send_image', function (src) {		
+            var currentRoom = rooms_whiteboard[socket.room];		
+            if(currentRoom !=undefined){		
+                currentRoom.images.push(src);		
+                socket.broadcast.to(socket.room).emit('update_image', src);		
+            }		
+        });
         // Gets 'token' messages on the socket. Checks the signature and ask nuve if it is valid.
         // Then registers it in the room and callback to the client.
         socket.on('token', function (token, callback) {
@@ -758,62 +899,72 @@ var listen = function () {
 
         //When a client leaves the room erizoController removes its streams from the room if exists.
         socket.on('disconnect', function () {
-            var i, index, id;
-
-            log.info('Socket disconnect ', socket.id);
-
-            for (i in socket.streams) {
-                if (socket.streams.hasOwnProperty(i)) {
-                    sendMsgToRoom(socket.room, 'onRemoveStream', {id: socket.streams[i]});
-                }
-            }
-
-            if (socket.room !== undefined) {
-
-                for (i in socket.room.streams) {
-                    if (socket.room.streams.hasOwnProperty(i)) {
-                        socket.room.streams[i].removeDataSubscriber(socket.id);
+            var whiteboardTest=socket.room;
+            if(rooms_whiteboard[whiteboardTest]){   
+                if (socket.room) {
+                    var roomName = socket.room;
+                    var userName = socket.username;
+                    var currentRoom = rooms_whiteboard[roomName];
+                    currentRoom.removeUser(userName);
+                    if (!currentRoom.users.length) {  // delete empty room
+                        delete rooms_whiteboard[roomName];
+                        io.sockets.emit('update_rooms', rooms_whiteboard);
+                    }
+                    else {
+                        socket.broadcast.to(roomName).emit('update_users', currentRoom.getUsers());
                     }
                 }
-
-                index = socket.room.sockets.indexOf(socket.id);
-                if (index !== -1) {
-                    socket.room.sockets.splice(index, 1);
-                }
-
-                if (socket.room.controller) {
-                    socket.room.controller.removeSubscriptions(socket.id);
-                }
-
+                socket.broadcast.to(roomName).emit('notification_message', userName, ' has disconnected from ' + roomName + '.');
+				socket.leave(roomName);
+            } else {
+                var i, index, id;
+                log.info('Socket disconnect ', socket.id);
                 for (i in socket.streams) {
                     if (socket.streams.hasOwnProperty(i)) {
-                        id = socket.streams[i];
-                        if( socket.room.streams[id]) {
-                            if (socket.room.streams[id].hasAudio() || socket.room.streams[id].hasVideo() || socket.room.streams[id].hasScreen()) {
-                                if (!socket.room.p2p) {
-                                    socket.room.controller.removePublisher(id);
-                                    if (GLOBAL.config.erizoController.report.session_events) {
-                                        var timeStamp = new Date();
-                                        amqper.broadcast('event', {room: socket.room.id, user: socket.id, type: 'unpublish', stream: id, timestamp: timeStamp.getTime()});
+                        sendMsgToRoom(socket.room, 'onRemoveStream', {id: socket.streams[i]});
+                    }
+                }
+                if (socket.room !== undefined) {
+
+                    for (i in socket.room.streams) {
+                        if (socket.room.streams.hasOwnProperty(i)) {
+                            socket.room.streams[i].removeDataSubscriber(socket.id);
+                        }
+                    }
+                    index = socket.room.sockets.indexOf(socket.id);
+                    if (index !== -1) {
+                        socket.room.sockets.splice(index, 1);
+                    }
+                    if (socket.room.controller) {
+                        socket.room.controller.removeSubscriptions(socket.id);
+                    }
+                    for (i in socket.streams) {
+                        if (socket.streams.hasOwnProperty(i)) {
+                            id = socket.streams[i];
+                            if( socket.room.streams[id]) {
+                                if (socket.room.streams[id].hasAudio() || socket.room.streams[id].hasVideo() || socket.room.streams[id].hasScreen()) {
+                                    if (!socket.room.p2p) {
+                                        socket.room.controller.removePublisher(id);
+                                        if (GLOBAL.config.erizoController.report.session_events) {
+                                            var timeStamp = new Date();
+                                            amqper.broadcast('event', {room: socket.room.id, user: socket.id, type: 'unpublish', stream: id, timestamp: timeStamp.getTime()});
+                                        }
                                     }
                                 }
+                                delete socket.room.streams[id];
                             }
-
-                            delete socket.room.streams[id];
                         }
                     }
                 }
-            }
-
-            if (socket.room !== undefined && !socket.room.p2p && GLOBAL.config.erizoController.report.session_events) {
-                var timeStamp = new Date();
-                amqper.broadcast('event', {room: socket.room.id, user: socket.id, type: 'user_disconnection', timestamp: timeStamp.getTime()});
-            }
-
-            if (socket.room !== undefined && socket.room.sockets.length === 0) {
-                log.info('Empty room ', socket.room.id, '. Deleting it');
-                delete rooms[socket.room.id];
-                updateMyState();
+                if (socket.room !== undefined && !socket.room.p2p && GLOBAL.config.erizoController.report.session_events) {
+                    var timeStamp = new Date();
+                    amqper.broadcast('event', {room: socket.room.id, user: socket.id, type: 'user_disconnection', timestamp: timeStamp.getTime()});
+                }
+                if (socket.room !== undefined && socket.room.sockets.length === 0) {
+                    log.info('Empty room ', socket.room.id, '. Deleting it');
+                    delete rooms[socket.room.id];
+                    updateMyState();
+                }
             }
         });
     });
