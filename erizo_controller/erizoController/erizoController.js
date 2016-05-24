@@ -298,7 +298,26 @@ var listen = function () {
 
     io.sockets.on('connection', function (socket) {
         log.info("New ErizoClient connected ", socket.id);
-
+        socket.on('startedRecording', function(data){		
+            console.log(data);		
+        //process.stdout.write(data.letter);		
+            var host = data['host'];		
+            var message = host + ' has started recording';		
+            var meeting_id = data['meeting_id'];		
+            var session_id = data['session_id'];		
+            log.info(message);		
+      // socket.broadcast.emit('cannotRecord', {'message': message});		
+            io.sockets.in(data.id).emit('cannotRecord',{'host': host, 'message': message, 'meeting_id': meeting_id, 'session_id': session_id});	                });		
+        socket.on('stoppedRecording', function(data){		
+        //process.stdout.write(data.letter);		
+            var host = data['host'];		
+            var message = host + ' has stopped recording';		
+            var meeting_id = data['meeting_id'];		
+		var session_id = data['session_id'];		
+            log.info(message);		
+      //  socket.broadcast.emit('canRecord', {'message': message});		
+            io.sockets.in(data.id).emit('canRecord',{'host': host,'message': message, 'meeting_id': meeting_id, 'session_id': session_id});		
+        });  
         // Gets 'token' messages on the socket. Checks the signature and ask nuve if it is valid.
         // Then registers it in the room and callback to the client.
         socket.on('token', function (token, callback) {
