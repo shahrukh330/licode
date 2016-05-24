@@ -14,6 +14,18 @@ var currentRoom;
 /*
  * Gets the service and the room for the proccess of the request.
  */
+
+var doInitByName = function (roomName, callback) {
+    "use strict";
+
+    currentService = require('./../auth/nuveAuthenticator').service;
+
+    serviceRegistry.getRoomForServicebyName(roomName, currentService, function (room) {
+        currentRoom = room;
+        callback();
+    });
+};
+
 var doInit = function (roomId, callback) {
     "use strict";
 
@@ -32,6 +44,22 @@ exports.represent = function (req, res) {
     "use strict";
 
     doInit(req.params.room, function () {
+        if (currentService === undefined) {
+            res.send('Client unathorized', 401);
+        } else if (currentRoom === undefined) {
+            log.info('Room ', req.params.room, ' does not exist');
+            res.send('Room does not exist', 404);
+        } else {
+            log.info('Representing room ', currentRoom._id, 'of service ', currentService._id);
+            res.send(currentRoom);
+        }
+    });
+};
+
+exports.representByName = function (req, res) {
+    "use strict";
+
+    doInitByName(req.params.room, function () {
         if (currentService === undefined) {
             res.send('Client unathorized', 401);
         } else if (currentRoom === undefined) {

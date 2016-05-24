@@ -79,4 +79,6 @@ app.get('/rooms/:room/users', usersResource.getList);
 app.get('/rooms/:room/users/:user', userResource.getUser);
 app.delete('/rooms/:room/users/:user', userResource.deleteUser);
 
+app.get('/rooms/:room/exists',roomResource.representByName);
+
 app.listen(3000);
