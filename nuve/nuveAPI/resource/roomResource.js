@@ -9,6 +9,16 @@ var logger = require('./../logger').logger;
 // Logger
 var log = logger.getLogger('RoomResource');
 
+
+var doInitByName = function (roomName, callback) {
+    currentService = require('./../auth/nuveAuthenticator').service;
+
+    serviceRegistry.getRoomForServicebyName(roomName, currentService, function (room) {
+        currentRoom = room;
+        callback();
+    });
+ };
+
 /*
  * Gets the service and the room for the proccess of the request.
  */
@@ -31,6 +41,21 @@ exports.represent = function (req, res) {
         } else {
             log.info('message: representRoom success, roomId: ' + currentRoom._id +
                 ', serviceId: ' + req.service._id);
+            res.send(currentRoom);
+        }
+    });
+};
+
+exports.representByName = function (req, res) {
+
+    doInitByName(req.params.room, function () {
+        if (req.service === undefined) {
+            res.send('Client unathorized', 401);
+        } else if (currentRoom === undefined) {
+            log.info('Room ', req.params.room, ' does not exist');
+            res.send('Room does not exist', 404);
+        } else {
+            log.info('Representing room ', currentRoom._id, 'of service ', currentService._id);
             res.send(currentRoom);
         }
     });
