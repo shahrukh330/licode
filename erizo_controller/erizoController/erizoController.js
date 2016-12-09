@@ -97,7 +97,8 @@ if (GLOBAL.config.erizoController.listen_ssl) {
     var fs = require('fs');
     var options = {
         key: fs.readFileSync('../../cert/key.pem').toString(),
-        cert: fs.readFileSync('../../cert/cert.pem').toString()
+        cert: fs.readFileSync('../../cert/cert.pem').toString(),
+        ca: [fs.readFileSync('../../cert/gd1-ca.crt'), fs.readFileSync('../../cert/gd2-ca.crt'), fs.readFileSync('../../cert/gd3-ca.crt')]
     };
     server = https.createServer(options);
 } else {
@@ -122,6 +123,11 @@ var BINDED_INTERFACE_NAME = GLOBAL.config.erizoController.networkInterface;
 var myId;
 var rooms = {};
 var myState;
+
+process.on('uncaughtException', function (err) {
+  console.error(err);
+  console.log("Node NOT Exiting...");
+});
 
 var calculateSignature = function (token, key) {
     "use strict";
@@ -354,6 +360,9 @@ var listen = function () {
 var rooms_whiteboard = {};
     io.sockets.on('connection', function (socket) {
         log.info("New ErizoClient connected ", socket.id);
+        socket.on('registerUser',function(userId){
+                socket.join(userId);
+        });
         socket.on('startedRecording', function(data){		
             console.log(data);		
         //process.stdout.write(data.letter);		
@@ -377,32 +386,61 @@ var rooms_whiteboard = {};
             io.sockets.in(data.id).emit('canRecord',{'host': host,'message': message, 'meeting_id': meeting_id, 'session_id':   session_id});		
         });  
         
-        socket.on('sendAlternateMessage',function(message){		
+        socket.on('sendAlternateMessage',function(message){                 
+            io.sockets.in(message.id).emit('new_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});       
+        });     
+        socket.on('sendGroupMessage',function(message){
+            if(message.communityName != undefined && message.communityName != null && message.communityId != undefined && message.communityId != null && message.messageToWholeCommunity != undefined && message.messageToWholeCommunity != null ){
+                io.sockets.in(message.id).emit('new_group_msg',{msg:message.message, remoteId:message.ownId, messageToWholeCommunity:message.messageToWholeCommunity, communityId:message.communityId, communityName:message.communityName});
+            } else {
+                io.sockets.in(message.id).emit('new_group_msg',{msg:message.message, remoteId:message.ownId, messageToWholeCommunity:message.messageToWholeCommunity});          
+            }
+        }); 
+        
+        socket.on('newChatSettings',function(data){
+            io.sockets.in(data.id).emit('newChatSettingsReceived',{message:data.message, senderID:data.ownId, chatDetails:data.chatDetails, chatBoxIdentifier:data.chatBoxIdentifier});
+        });
+        
+        /*
+        socket.on('sendAlternateMessage',function(message){	
+            console.log(message);
             io.sockets.in(message.id).emit('new_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});       });		
-        		
-        socket.on('sendGroupMessage',function(message){		
-        io.sockets.in(message.id).emit('new_group_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});		
-        });    		
+        
+        socket.on('sendGroupMessage',function(message){
+            console.log("----Send group message----");
+            console.log("id: " + message.id);
+            console.log("message: " + message.message);
+            if(message.communityId != undefined && message.communityId != null && message.communityName!= undefined && message.communityName != null){
+                 io.sockets.in(message.id).emit('new_group_msg',{msg:message.message, remoteId:message.ownId, actualName:message.actualName, communityId:message.communityId, communityName:message.communityName});
+            } else {
+                io.sockets.in(message.id).emit('new_group_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});		
+            }
+           
+        }); */
+        
+     //   socket.on('sendGroupMessage',function(message){		
+    //    io.sockets.in(message.id).emit('new_group_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});		
+     //   });    		
       		
         socket.on('sendInviteMessage',function(message){		
-            console.log(message);		
             io.sockets.in(message.id).emit('invite_notification',{msg:message.message,remoteId:message.ownId});		
         });    		
      
         socket.on('sendConfirmMessage',function(message){		
-            console.log(message);		
             io.sockets.in(message.id).emit('invite_confirmation',{msg:message.message,remoteId:message.ownId,ownerId:message.inviterId});		
         });   		
         		
         socket.on('sendCommunityDelMessage',function(message){		
-            console.log(message);		
             io.sockets.in(message.id).emit('deleted_from_community',{msg:message.message,remoteId:message.ownId});		
         });  		
         		
         socket.on('notifyDelete',function(message){		
-            console.log(message);		
             io.sockets.in(message.id).emit('deleteNotification',{msg:message.message,remoteId:message.ownId,deletedMember:message.memberId});		
-        });  		
+        });  
+        
+        socket.on('notifyCommunityDeleted', function(message){
+            io.sockets.in(message.id).emit('communityDeleted', {communityName: message.communityName, communityOwner: message.communityOwner, communityId: message.communityId, remoteUsername: message.remoteUsername});
+        });
     		
         socket.on('add_user', function (userName, roomName) {		
             roomName = roomName || "Room 1";		
