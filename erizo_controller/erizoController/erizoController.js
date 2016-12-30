@@ -386,28 +386,27 @@ var listen = function () {
 		 socket.on('registerUser',function(userId){
                 socket.join(userId);
         });
-        socket.on('startedRecording', function(data){		
-            console.log(data);		
-        //process.stdout.write(data.letter);		
-            var host = data['host'];		
-            var message = host + ' has started recording';		
-            var meeting_id = data['meeting_id'];		
-            var session_id = data['session_id'];		
-            log.info(message);		
-      // socket.broadcast.emit('cannotRecord', {'message': message});		
-            io.sockets.in(data.id).emit('cannotRecord',{'host': host, 'message': message, 'meeting_id': meeting_id, 'session_id':   session_id});
-        });		
-        
-        socket.on('stoppedRecording', function(data){		
-            //process.stdout.write(data.letter);		
-            var host = data['host'];		
-            var message = host + ' has stopped recording';		
-            var meeting_id = data['meeting_id'];		
-            var session_id = data['session_id'];		
-            log.info(message);		
-            //  socket.broadcast.emit('canRecord', {'message': message});		
-            io.sockets.in(data.id).emit('canRecord',{'host': host,'message': message, 'meeting_id': meeting_id, 'session_id':   session_id});		
-        });  
+//// Start Recording: called when recording is started from client end
+	socket.on('startedRecording', function(data){  
+		console.log(data);   
+		var host = data['host'];  
+		var message = host + ' has started recording';  
+		var meeting_id = data['meeting_id'];
+		var user_id = data.user_id;
+		log.info(message); 
+		log.info(user_id);
+		io.sockets.in(data.id).emit('cannotRecord',{'host': host, 'message': message, 'meeting_id': meeting_id, 'user_id':user_id});
+    });
+//// Stop recording: called when recording is stopped from client end
+	socket.on('stoppedRecording', function(data){   
+		var host = data['host'];  
+		var message = host + ' has stopped recording';  
+		var meeting_id = data['meeting_id'];
+		var user_id = data.user_id;
+		log.info(message); 
+		log.info(user_id);
+		io.sockets.in(data.id).emit('canRecord',{'host': host,'message': message, 'meeting_id': meeting_id,  'user_id':user_id}); 
+	}); 
         
         socket.on('sendAlternateMessage',function(message){                 
             io.sockets.in(message.id).emit('new_msg',{msg:message.message,remoteId:message.ownId,actualName:message.actualName});       
