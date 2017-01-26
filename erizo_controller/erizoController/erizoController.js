@@ -465,6 +465,22 @@ var listen = function () {
         });
     		
         socket.on('add_user', function (userName, roomName) {		
+            var whiteboardTest=socket.room;
+            if(rooms_whiteboard[whiteboardTest]){   
+                if (socket.room) {
+                    var roomNameTemp = socket.room;
+                    var userNameTemp = socket.username;
+                    var currentRoom = rooms_whiteboard[roomNameTemp];
+                    currentRoom.removeUser(userNameTemp);
+                    if (!currentRoom.users.length) {  // delete empty room
+                        delete rooms_whiteboard[roomNameTemp];
+                        io.sockets.emit('update_rooms', rooms_whiteboard);
+                    } else {
+                        socket.broadcast.to(roomNameTemp).emit('update_users', currentRoom.getUsers());
+                    }
+                }
+                socket.leave(roomNameTemp);
+            }
             roomName = roomName || "Room 1";		
             socket.username = userName;		
             socket.room = roomName;		
