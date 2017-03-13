@@ -27,8 +27,11 @@
 #include "rtp/SRPacketHandler.h"
 #include "rtp/SenderBandwidthEstimationHandler.h"
 #include "rtp/LayerDetectorHandler.h"
+#include "rtp/LayerBitrateCalculationHandler.h"
 #include "rtp/QualityFilterHandler.h"
 #include "rtp/QualityManager.h"
+#include "rtp/PliPacerHandler.h"
+#include "rtp/RtpPaddingGeneratorHandler.h"
 
 namespace erizo {
 DEFINE_LOGGER(WebRtcConnection, "WebRtcConnection");
@@ -253,9 +256,12 @@ void WebRtcConnection::initializePipeline() {
   pipeline_->addFront(RtcpProcessorHandler());
   pipeline_->addFront(IncomingStatsHandler());
   pipeline_->addFront(FecReceiverHandler());
+  pipeline_->addFront(LayerBitrateCalculationHandler());
   pipeline_->addFront(QualityFilterHandler());
   pipeline_->addFront(RtpAudioMuteHandler());
   pipeline_->addFront(RtpSlideShowHandler());
+  pipeline_->addFront(RtpPaddingGeneratorHandler());
+  pipeline_->addFront(PliPacerHandler());
   pipeline_->addFront(BandwidthEstimationHandler());
   pipeline_->addFront(RtcpFeedbackGenerationHandler());
   pipeline_->addFront(RtpRetransmissionHandler());
@@ -702,7 +708,7 @@ WebRTCEvent WebRtcConnection::getCurrentState() {
 void WebRtcConnection::getJSONStats(std::function<void(std::string)> callback) {
   asyncTask([callback] (std::shared_ptr<WebRtcConnection> connection) {
     std::string requested_stats = connection->stats_->getStats();
-    ELOG_DEBUG("%s message: Stats, stats: %s", connection->toLog(), requested_stats.c_str());
+    //  ELOG_DEBUG("%s message: Stats, stats: %s", connection->toLog(), requested_stats.c_str());
     callback(requested_stats);
   });
 }
@@ -816,8 +822,7 @@ void WebRtcConnection::sendPacket(std::shared_ptr<dataPacket> p) {
 
 void WebRtcConnection::setQualityLayer(int spatial_layer, int temporal_layer) {
   asyncTask([spatial_layer, temporal_layer] (std::shared_ptr<WebRtcConnection> connection) {
-    connection->quality_manager_->setSpatialLayer(spatial_layer);
-    connection->quality_manager_->setTemporalLayer(temporal_layer);
+    connection->quality_manager_->forceLayers(spatial_layer, temporal_layer);
   });
 }
 
