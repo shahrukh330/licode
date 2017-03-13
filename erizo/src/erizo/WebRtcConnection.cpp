@@ -71,7 +71,6 @@ WebRtcConnection::WebRtcConnection(std::shared_ptr<Worker> worker, const std::st
 
 WebRtcConnection::~WebRtcConnection() {
   ELOG_DEBUG("%s message:Destructor called", toLog());
-  sending_ = false;
   if (videoTransport_.get()) {
     videoTransport_->close();
   }
@@ -79,16 +78,18 @@ WebRtcConnection::~WebRtcConnection() {
     audioTransport_->close();
   }
   globalState_ = CONN_FINISHED;
+  close();
+  ELOG_DEBUG("%s message: Destructor ended", toLog());
+}
+
+void WebRtcConnection::close() {
+  sending_ = false;
   if (connEventListener_ != nullptr) {
     connEventListener_ = nullptr;
   }
   video_sink_ = nullptr;
   audio_sink_ = nullptr;
   fb_sink_ = nullptr;
-  ELOG_DEBUG("%s message: Destructor ended", toLog());
-}
-
-void WebRtcConnection::close() {
 }
 
 bool WebRtcConnection::init() {
@@ -464,10 +465,10 @@ void WebRtcConnection::read(std::shared_ptr<dataPacket> packet) {
     if (bundle_) {
       // Check incoming SSRC
       // Deliver data
-      if (isVideoSourceSSRC(recvSSRC)) {
+      if (isVideoSourceSSRC(recvSSRC) && video_sink_ != nullptr) {
         parseIncomingPayloadType(buf, len, VIDEO_PACKET);
-        video_sink_->deliverVideoData(packet);
-      } else if (isAudioSourceSSRC(recvSSRC)) {
+	    video_sink_->deliverVideoData(packet);
+      } else if (isAudioSourceSSRC(recvSSRC) && audio_sink_ != nullptr) {
         parseIncomingPayloadType(buf, len, AUDIO_PACKET);
         audio_sink_->deliverAudioData(packet);
       } else {
