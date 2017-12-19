@@ -53,35 +53,35 @@ config.erizoController.iceServers = [{'url': 'stun:stun.l.google.com:19302'}]; /
 
 // Default and max video bandwidth parameters to be used by clients
 config.erizoController.defaultVideoBW = 300; //default value: 300
-config.erizoController.maxVideoBW = 300; //default value: 300
+config.erizoController.maxVideoBW = 2048; //default value: 300
 
 // Public erizoController IP for websockets (useful when behind NATs)
 // Use '' to automatically get IP from the interface
-config.erizoController.publicIP = ''; //default value: ''
+config.erizoController.publicIP = 'ERIZO_CONTROLLER_PUBLIC_IP'; //default value: ''
 config.erizoController.networkinterface = ''; //default value: ''
 
 // This configuration is used by the clients to reach erizoController
 // Use '' to use the public IP address instead of a hostname
-config.erizoController.hostname = ''; //default value: ''
-config.erizoController.port = 8080; //default value: 8080
+config.erizoController.hostname = 'ERIZO_CONTROLLER_HOSTNAME'; //default value: ''
+config.erizoController.port = 8081; //default value: 8080
 // Use true if clients communicate with erizoController over SSL
-config.erizoController.ssl = false; //default value: false
+config.erizoController.ssl = true; //default value: false
 
 // This configuration is used by erizoController server to listen for connections
 // Use true if erizoController listens in HTTPS.
-config.erizoController.listen_ssl = false; //default value: false
-config.erizoController.listen_port = 8080; //default value: 8080
+config.erizoController.listen_ssl = true; //default value: false
+config.erizoController.listen_port = 8081; //default value: 8080
 
 // Custom location for SSL certificates. Default located in /cert
-//config.erizoController.ssl_key = '/full/path/to/ssl.key';
-//config.erizoController.ssl_cert = '/full/path/to/ssl.crt';
-//config.erizoController.sslCaCerts = ['/full/path/to/ca_cert1.crt', '/full/path/to/ca_cert2.crt'];
+config.erizoController.ssl_key = 'SSL_KEY';
+config.erizoController.ssl_cert = 'SSL_CERT';
+config.erizoController.sslCaCerts = ['SSL_BUNDLE'];
 
 // Use the name of the inferface you want to bind to for websockets
 // config.erizoController.networkInterface = 'eth1' // default value: undefined
 
 config.erizoController.warning_n_rooms = 15; // default value: 15
-config.erizoController.limit_n_rooms = 20; // default value: 20
+config.erizoController.limit_n_rooms = 50; // default value: 20
 config.erizoController.interval_time_keepAlive = 1000; // default value: 1000
 
 // Roles to be used by services
@@ -109,13 +109,13 @@ config.erizoController.cloudHandlerPolicy = 'default_policy.js'; // default valu
 config.erizoAgent = {};
 
 // Max processes that ErizoAgent can run
-config.erizoAgent.maxProcesses 	  = 1; // default value: 1
+config.erizoAgent.maxProcesses 	  = 2; // default value: 1
 // Number of precesses that ErizoAgent runs when it starts. Always lower than or equals to maxProcesses.
 config.erizoAgent.prerunProcesses = 1; // default value: 1
 
 // Public erizoAgent IP for ICE candidates (useful when behind NATs)
 // Use '' to automatically get IP from the interface
-config.erizoAgent.publicIP = ''; //default value: ''
+config.erizoAgent.publicIP = 'ERIZO_AGENT_PUBLIC_IP'; //default value: ''
 config.erizoAgent.networkinterface = ''; //default value: ''
 
 // Use the name of the inferface you want to bind for ICE candidates
@@ -140,7 +140,7 @@ config.erizo = {};
 //you can control log levels in [licode_path]/erizo_controller/erizoAgent/log4cxx.properties
 
 // Number of workers that will be used to handle WebRtcConnections
-config.erizo.numWorkers = 24;
+config.erizo.numWorkers = 512;
 
 //STUN server IP address and port to be used by the server.
 //if '' is used, the address is discovered locally
